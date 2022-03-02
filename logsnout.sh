@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 
-#########################################
-#      _     ___   ____  ____ ____      #
-#     | |   / _ \ / ___|/ ___/ ___|     #
-#     | |  | | | | |  _| |  _\___ \     #
-#     | |__| |_| | |_| | |_| |___) |    #
-#     |_____\___/ \____|\____|____/     #
-#                                       #
-#########################################
-
+#############################################################
+#      _                ____                       _        #
+#     | |    ___   __ _/ ___| _ __    ____   _   _| |_      #
+#     | |   / _ \ / _` \___ \| '_ \ / _  _ \| | | | __|     #
+#     | |__| (_) | (_| |___) | | | | (_)(_) | |_| | |_      #
+#     |_____\___/ \__, |____/|_| |_|\______/ \__,_|\__|     #
+#                 |___/                                     #
+#############################################################
 function usage() {
   clear
   echo -e "
@@ -44,6 +43,27 @@ if [[ $1 == 'conf' ]]; then
   exit
 fi
 
+## Forked processes
+if [[ $1 == $(echo $0 | base64) ]]; then            ### WIP - doesn't do anything ATM
+  shift
+  case $1 in
+    FILTER ) # rethreading requires  $i, $ff, $fil, $excl, $exC, $exO, $exMode
+      shift
+      i=$1; ff=$2; fil=$3; excl=$4; exC=$5; exO=$6; exMode=$7
+      function ggrep() { [[ $exC -eq 0 ]] && egrep "$@" || egrep -i "$@";}
+      function include() { [[ -z "$1" ]] && cat || ggrep "$1";} # because cat is faster than grep if you don't need to filter
+      function exclude() { [[ -z "$1" ]] && cat || ggrep -v "$1";}
+
+      echo do a filtering thing
+    ;;
+    TARDIS )
+      shift
+      echo do the time thing
+    ;;
+  esac
+  exit
+fi
+
 i=$1
 esc=`echo -en '\033'`
 tab=`echo -en '\t'`
@@ -53,7 +73,7 @@ hpos=0
 fil=''
 excl=''
 dim="$esc[0;37m"
-corner="[$esc[0;35m$i$dim]"
+[[ $(stty -a | grep -c utf8) -gt 0 ]] && corner="[㏒⚇][$esc[0;35m$i$dim]" || corner="$dim[$esc[0;35m$i$dim]"
 hostlist=$(zcat -f $i | awk '{print $4}' | sort | uniq | tr '\n' '|' | sed 's/|$//g')
 
 # Default filters, 0/true = exclude, 1/false = include
@@ -62,16 +82,20 @@ exW=1 # Warning
 exI=1 # Info
 exD=0 # Debug
 exO=1 # Other
-exC=1 # Case sensitive. 0=sensitive, 1=insensitive
+exC=1 # Case sensitivity. 0=sensitive, 1=insensitive
 
-mscroll='1' # 1=1, r=$rows
-lwrap=1 # 0=wrap, 1=don't wrap
+mscroll='1'     # 1=1, r=$rows
+lwrap=1         # 0=wrap, 1=don't wrap
 searchterm=''
 searchnum=1
-ar=$(mktemp /tmp/ar.XXX)
-ff=$(mktemp /tmp/ff.XXX)
-sr=$(mktemp /tmp/sr.XXX)
-ffd=$(mktemp -d /tmp/ffd.XXX)
+tbl=1           # 0=true/tabulate, 1=false/don't
+
+lsd=$(mktemp -d /tmp/logsnout.XXX)
+ar="$lsd/ar" && touch $ar         # actual actualrows
+tf="$lsd/tf" && touch $tf         # timestamped file
+ff="$lsd/ff" && touch $ff         # filtered file
+sr="$lsd/sr" && touch $sr         # search results
+ffd="$lsd/ffd" && mkdir $ffd      # filtered file split dir
 
 if [[ ! -e ~/.config/loggs ]]; then
   mkdir -p ~/.config
@@ -106,6 +130,10 @@ UUID,          0;36,           [A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-F
 EOF
 fi
 
+function thread() {
+  $0 $(echo $0 | base64) "$@" &
+}
+
 function buildsedstring() {
   cat ~/.config/loggs | egrep -v -e "^[#%].*" -e "^$" | while read -r line; do
     local colour="$esc[$(echo -e $line | cut -d, -f2 | sed 's/^ *//g')m"
@@ -128,10 +156,7 @@ rlen=$flen
 function bye() {
   echo -en "\e[?9l" # turn mouse off
   echo -en "\e[?7h" # turn wrap back on
-  rm -f $ar
-  rm -f $sr
-  rm -f $ff
-  rm -rf $ffd
+  rm -rf $lsd
   clear
   exit
 }
@@ -142,25 +167,14 @@ function termcheck() {
   columns=$(stty -a | grep -o 'columns [0-9]*;' | grep -o '[0-9]*')
 }
 
-function tint() {
-  [[ $exC -eq 0 ]] && local cS='i' || local cS='I'
-  [[ -z $searchterm ]] && local st='sfasdfac!axq45bydsarq234214qadsc' || local st=$searchterm
-  [[ -z $fil ]] && local fl='sfasdfac!axq45bydsarq234214qadsc' || local fl=$fil
-  sed -r "
-   $sedstring;
-   s/($hostlist)/$esc[2;31m\1$dim/g;
-   s/($fl)/$esc[0;1;4;30;97m\1$dim/g$cS;
-   s/($st)/$esc[0;1;4;30;92m\1$dim/g$cS"
-}
-
 function macro() {
   cat ~/.config/loggs | egrep "$1" | sed 's/^%[A-Za-z0-9]*%, *//g'
 }
 
-function filter() {
-  function ggrep() {
-    [[ $exC -eq 0 ]] && egrep "$@" || egrep -i "$@"
-  }
+
+
+function filter() {  # rethreading requires  $i, $ff, $fil, $excl, $exC, $exO, $exMode
+  function ggrep() { [[ $exC -eq 0 ]] && egrep "$@" || egrep -i "$@";}
   function include() { [[ -z "$1" ]] && cat || ggrep "$1";} # because cat is faster than grep if you don't need to filter
   function exclude() { [[ -z "$1" ]] && cat || ggrep -v "$1";}
   local exMode=''
@@ -190,30 +204,41 @@ function filter() {
   fi
 }
 
-
-function searchbar() {
-  if [[ -n $searchterm ]]; then
-    [[ ${#searchterm} -gt 16 ]] && local dsearchterm="${searchterm:0:15}…" || local dsearchterm=$searchterm
-    echo -en "\e[1;97m[\e[1;92m$dsearchterm: $searchnum/$(cat $sr | wc -l)\e[1;97m]\e[0m"
+function tabulate() {
+  if [[ $tbl -eq 0 && $lwrap -eq 1 ]]; then
+    cat | sed -r 's/([^A-Za-z0-9]) ([^A-Za-z0-9])/\1£│£\2/g; s/ ([^A-Za-z0-9]) /\1£│£/g' | column -s£ -t
+  else
+    cat                      # pass the input stream right through
   fi
+}
+
+function tint() {
+  [[ $exC -eq 0 ]] && local cS='i' || local cS='I'
+  [[ -z $searchterm ]] && local st='sfasdfac!axq45bydsarq234214qadsc' || local st=$searchterm
+  [[ -z $fil ]] && local fl='sfasdfac!axq45bydsarq234214qadsc' || local fl=$fil
+  sed -r "
+   $sedstring;
+   s/($hostlist)/$esc[2;31m\1$dim/g;
+   s/($fl)/$esc[0;1;4;30;97m\1$dim/g$cS;
+   s/($st)/$esc[0;1;4;30;92m\1$dim/g$cS"
 }
 
 function hwin() {
   local printedrows=0
   local actualrows=0
-  if [[ $lwrap -eq 0 ]]; then
+  if [[ $lwrap -eq 0 ]]; then              # line wrap on
     while read hl; do
       local pl="$esc[1;92m---$esc[0m $hl"
       linelen=$(( $(( ${#hl} + 3 )) / columns + 1 ))
       printedrows=$(( printedrows + linelen ))
       actualrows=$(( actualrows + 1 ))
-      [[ $printedrows -ge rows ]] && break
-      echo "$pl"
+      [[ $printedrows -ge $rows ]] && break
+      echo "$pl$esc[0J"
     done
   else
     echo -en "\033[?7l"
     while read hl; do # line wrap is off, lines truncate
-      echo "$esc[2K$([[ $hpos -gt 0 ]] && echo -en "$esc[1;32m| $dim")$(echo $hl | tail -c+$hpos) "
+      echo "$esc[2K$([[ $hpos -gt 0 ]] && echo -en "$esc[1;32m│$dim")$(echo $hl | tail -c+$hpos) "
       actualrows=$(( actualrows + 1 ))
       printedrows=$(( printedrows + 1 ))
       [[ $printedrows -ge $rows ]] && break
@@ -224,6 +249,13 @@ function hwin() {
     echo -e '\033[J'
   fi
   echo $actualrows > $ar
+}
+
+function searchbar() {
+  if [[ -n $searchterm ]]; then
+    [[ ${#searchterm} -gt 16 ]] && local dsearchterm="${searchterm:0:15}…" || local dsearchterm=$searchterm
+    echo -en "\e[1;97m[\e[1;92m$dsearchterm: $searchnum/$(cat $sr | wc -l)\e[1;97m]\e[0m"
+  fi
 }
 
 function statusbar() {
@@ -239,7 +271,7 @@ function statusbar() {
   [[ ${#fil} -gt 16 ]] && local dfil="${fil:0:15}…" || local dfil=$fil
   [[ ${#excl} -gt 16 ]] && local dexcl="${excl:0:15}…" || local dexcl=$excl
   local bar="[$bC $bE$bW$bI$bD$bO $esc[0;4;97m$dfil$dim $esc[9;97m$dexcl$dim][$esc[0;97m$line-$lline $marrow $rlen$dim]"
-  local offset=$(( columns - ${#bar} + 99 ))
+  local offset=$(( columns - ${#bar} + 98 ))
   echo -ne "\033[${rows};${offset}H\033[2K${bar}"
 }
 
@@ -264,7 +296,7 @@ function display() {
   local segline=$(( line % 1000 ))
   segfile="$(ls -1 $ffd | head -n $segment | tail -n1)"
   [[ $exC -eq 0 ]] && local cS='i' || local cS='I'
-  cat "$ffd/$segfile" | tail -n+$segline | hwin | tint
+  cat "$ffd/$segfile" | tail -n+$segline | hwin | tint | tabulate
   statusbar
   echo -ne "\033[$rows;1H$corner\033[?25h" # corner block, make cursor visible again
   searchbar
@@ -274,6 +306,7 @@ trap display SIGWINCH
 
 
 ################################ Initialise
+
 
 filter
 display
@@ -304,9 +337,10 @@ while true; do
     D ) exE=0; exW=0; exI=0; exD=1; exO=0; line=0; hpos=0; filter; display ;;       # only DEBUG
     O ) exE=0; exW=0; exI=0; exD=0; exO=1; line=0; hpos=0; filter; display ;;       # only Other
     C | c ) [[ $exC -eq 0 ]] && exC=1 || exC=0; line=0; hpos=0; filter; display ;;  # Case sensitivity
-    L | l ) clear; [[ $lwrap -eq 0 ]] && lwrap=1 || lwrap=0; display ;;             # Line wrap
+    L | l ) clear; [[ $lwrap -eq 0 ]] && lwrap=1 || lwrap=0; display ;;      # Line wrap
     P | p ) [[ $mscroll == '1' ]] && mscroll='r' || mscroll='1'; clear; display ;;  # Power scroll
     Q | q ) bye ;;
+    B | b ) [[ $tbl -eq 1 ]] && tbl=0 || tbl=1; hpos=0; display ;;  # toggle tabulation
     S | s ) echo -en "\e[?9l"; IFS= read -sn1 aa; IFS= read -s -t 0.01 r ;;         # briefly turn mouse off so you can select
     $esc )
       if [[ $b == '[' ]]; then                        # Navigation
@@ -331,6 +365,7 @@ while true; do
       if [[ -z $b && -z $searchterm ]]; then
         fil=''
         excl=''
+        # tbl=1
         filter
       fi
       if [[ -z $b && -n $searchterm ]]; then
@@ -392,3 +427,14 @@ while true; do
     ;;
   esac
 done
+
+
+# TODO
+exit
+
+timestamp index the file (takes a while, so will need to be done in a seperate thread)
+ - prefix each line with epoch seconds
+ - sort lines
+ - never display epoch field
+
+cat opsview.log | cut -d\  -f1-4 | sed 's/  */ /g' | xargs -I£ date -d "£" +%s &>/dev/null

@@ -1,8 +1,8 @@
-# LoggSn🐽ut
+# LogSn🐽ut
 
 This program is quite simple to use, and faster than many log utilities (Because it uses the system's `grep` instead of dozens of libs and packages - It takes 8 seconds to load and filter a 1,000,000 line log file on a mid-spec laptop).
 
-Usage: **loggsnout.sh [conf | logfile]**
+Usage: **logsnout.sh [conf | logfile]**
 
 Once viewing the file, the following commands are available:
 

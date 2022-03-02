@@ -1,8 +1,8 @@
-# Loggs
+# LoggSn🐽ut
 
 This program is quite simple to use, and faster than many log utilities (Because it uses the system's `grep` instead of dozens of libs and packages - It takes 8 seconds to load and filter a 1,000,000 line log file on a mid-spec laptop).
 
-Usage: **loggs.sh [conf | logfile]**
+Usage: **loggsnout.sh [conf | logfile]**
 
 Once viewing the file, the following commands are available:
 
@@ -16,6 +16,7 @@ Once viewing the file, the following commands are available:
 - Mode toggling keys:
   - `P`: Power scroll (mouse wheel scrolls 1% of the file at a time instead of 3 lines)
   - `L`: Line wrap
+  - `B`: Tabulate (
   - `C`: Case sensitivity
   - `E`: Error
   - `W`: Warning

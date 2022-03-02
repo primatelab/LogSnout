@@ -16,7 +16,7 @@ Once viewing the file, the following commands are available:
 - Mode toggling keys:
   - `P`: Power scroll (mouse wheel scrolls 1% of the file at a time instead of 3 lines)
   - `L`: Line wrap
-  - `B`: Tabulate (
+  - `B`: Tabulate ( Line up fields in rows - only if line wrap is off )
   - `C`: Case sensitivity
   - `E`: Error
   - `W`: Warning

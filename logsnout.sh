@@ -427,14 +427,3 @@ while true; do
     ;;
   esac
 done
-
-
-# TODO
-exit
-
-timestamp index the file (takes a while, so will need to be done in a seperate thread)
- - prefix each line with epoch seconds
- - sort lines
- - never display epoch field
-
-cat opsview.log | cut -d\  -f1-4 | sed 's/  */ /g' | xargs -I£ date -d "£" +%s &>/dev/null

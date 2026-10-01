@@ -47,7 +47,8 @@ fi
 if [[ $1 == $(echo $0 | base64) ]]; then            ### WIP - doesn't do anything ATM
   shift
   case $1 in
-    FILTER ) # rethreading requires  $i, $ff, $fil, $excl, $exC, $exO, $exMode
+    # rethreading requires  $i, $ff, $fil, $excl, $exC, $exO, $exMode
+    FILTER ) 
       shift
       i=$1; ff=$2; fil=$3; excl=$4; exC=$5; exO=$6; exMode=$7
       function ggrep() { [[ $exC -eq 0 ]] && egrep "$@" || egrep -i "$@";}
@@ -355,10 +356,10 @@ while true; do
           F ) line=$(( rlen - rw )) ;;                                                                    # End
           # Z ) echo "you pressed shift+tab" ;;                                                           # Shift+tab
           M )
-          case $d in                                                                                    # Mouse
-            '`' ) line=$(( line - mp )) ;;                                                                # scroll up
-            'a' ) line=$(( line + mp )) ;;                                                                # scroll down
-          esac
+            case $d in                                                                                    # Mouse
+              '`' ) line=$(( line - mp )) ;;                                                                # scroll up
+              'a' ) line=$(( line + mp )) ;;                                                                # scroll down
+            esac
           ;;
         esac
       fi
